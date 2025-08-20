@@ -115,7 +115,11 @@
             right: { pressed: false }
         };
         let lastKey = '';
+        
+        // Variabili per il game loop a tempo fisso
         let lastFrameTime = 0;
+        let accumulator = 0;
+        const fixedTimeStep = 1000 / 60; // 60 aggiornamenti al secondo
 
         // Carica il punteggio migliore
         bestScore = localStorage.getItem('amigoManBestScore') || 0;
@@ -211,10 +215,9 @@
                 );
                 c.restore();
             }
-            update(speedModifier = 1) {
-                this.draw();
-                this.position.x += this.velocity.x * speedModifier;
-                this.position.y += this.velocity.y * speedModifier;
+            update() {
+                this.position.x += this.velocity.x;
+                this.position.y += this.velocity.y;
 
                 if (this.velocity.x > 0) this.facingRight = true;
                 else if (this.velocity.x < 0) this.facingRight = false;
@@ -255,10 +258,9 @@
                     );
                 }
             }
-            update(speedModifier = 1) {
-                this.draw();
-                this.position.x += this.velocity.x * speedModifier;
-                this.position.y += this.velocity.y * speedModifier;
+            update() {
+                this.position.x += this.velocity.x;
+                this.position.y += this.velocity.y;
             }
         }
         
@@ -341,54 +343,41 @@
             ];
         }
 
-        function animate(timestamp) {
-            animationId = requestAnimationFrame(animate);
-            c.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (!lastFrameTime) {
-                lastFrameTime = timestamp;
-            }
-            const deltaTime = timestamp - lastFrameTime;
-            lastFrameTime = timestamp;
-            const speedModifier = Math.min(deltaTime, 33) / 16.67; // Cap at ~30fps, normalize to 60fps
-
+        function update() {
             if (keys.up.pressed && lastKey === 'up') {
-                let collision = boundaries.some(boundary => circleCollidesWithRectangle({ circle: player, rectangle: boundary, velocity: { x: 0, y: -playerSpeed * speedModifier } }));
+                let collision = boundaries.some(boundary => circleCollidesWithRectangle({ circle: player, rectangle: boundary, velocity: { x: 0, y: -playerSpeed } }));
                 if (!collision) {
                     player.velocity.x = 0;
                     player.velocity.y = -playerSpeed;
                 }
             } else if (keys.down.pressed && lastKey === 'down') {
-                let collision = boundaries.some(boundary => circleCollidesWithRectangle({ circle: player, rectangle: boundary, velocity: { x: 0, y: playerSpeed * speedModifier } }));
+                let collision = boundaries.some(boundary => circleCollidesWithRectangle({ circle: player, rectangle: boundary, velocity: { x: 0, y: playerSpeed } }));
                 if (!collision) {
                     player.velocity.x = 0;
                     player.velocity.y = playerSpeed;
                 }
             } else if (keys.left.pressed && lastKey === 'left') {
-                let collision = boundaries.some(boundary => circleCollidesWithRectangle({ circle: player, rectangle: boundary, velocity: { x: -playerSpeed * speedModifier, y: 0 } }));
+                let collision = boundaries.some(boundary => circleCollidesWithRectangle({ circle: player, rectangle: boundary, velocity: { x: -playerSpeed, y: 0 } }));
                 if (!collision) {
                     player.velocity.x = -playerSpeed;
                     player.velocity.y = 0;
                 }
             } else if (keys.right.pressed && lastKey === 'right') {
-                let collision = boundaries.some(boundary => circleCollidesWithRectangle({ circle: player, rectangle: boundary, velocity: { x: playerSpeed * speedModifier, y: 0 } }));
+                let collision = boundaries.some(boundary => circleCollidesWithRectangle({ circle: player, rectangle: boundary, velocity: { x: playerSpeed, y: 0 } }));
                 if (!collision) {
                     player.velocity.x = playerSpeed;
                     player.velocity.y = 0;
                 }
             }
 
-            let willCollide = boundaries.some(boundary => circleCollidesWithRectangle({ circle: player, rectangle: boundary, velocity: { x: player.velocity.x * speedModifier, y: player.velocity.y * speedModifier } }));
+            let willCollide = boundaries.some(boundary => circleCollidesWithRectangle({ circle: player, rectangle: boundary, velocity: player.velocity }));
             if (willCollide) {
                 player.velocity.x = 0;
                 player.velocity.y = 0;
             }
 
-            boundaries.forEach(boundary => boundary.draw());
-
             for (let i = pellets.length - 1; i >= 0; i--) {
                 const pellet = pellets[i];
-                pellet.draw();
                 if (Math.hypot(pellet.position.x - player.position.x, pellet.position.y - player.position.y) < pellet.radius + player.radius) {
                     pellets.splice(i, 1);
                     score += 10;
@@ -399,7 +388,6 @@
             
             for (let i = powerUps.length - 1; i >= 0; i--) {
                 const powerUp = powerUps[i];
-                powerUp.draw();
                 if (Math.hypot(powerUp.position.x - player.position.x, powerUp.position.y - player.position.y) < powerUp.radius + player.radius) {
                     powerUps.splice(i, 1);
                     playPowerUpSound();
@@ -410,7 +398,7 @@
                 }
             }
             
-            player.update(speedModifier);
+            player.update();
 
             ghosts.forEach((ghost) => {
                 if (Math.hypot(ghost.position.x - player.position.x, ghost.position.y - player.position.y) < ghost.radius + player.radius) {
@@ -445,12 +433,11 @@
                 }
 
                 const collisions = [];
-                const scaledGhostSpeed = ghost.speed * speedModifier;
                 boundaries.forEach(boundary => {
-                    if (!collisions.includes('right') && circleCollidesWithRectangle({ circle: ghost, rectangle: boundary, velocity: { x: scaledGhostSpeed, y: 0 } })) collisions.push('right');
-                    if (!collisions.includes('left') && circleCollidesWithRectangle({ circle: ghost, rectangle: boundary, velocity: { x: -scaledGhostSpeed, y: 0 } })) collisions.push('left');
-                    if (!collisions.includes('up') && circleCollidesWithRectangle({ circle: ghost, rectangle: boundary, velocity: { x: 0, y: -scaledGhostSpeed } })) collisions.push('up');
-                    if (!collisions.includes('down') && circleCollidesWithRectangle({ circle: ghost, rectangle: boundary, velocity: { x: 0, y: scaledGhostSpeed } })) collisions.push('down');
+                    if (!collisions.includes('right') && circleCollidesWithRectangle({ circle: ghost, rectangle: boundary, velocity: { x: ghost.speed, y: 0 } })) collisions.push('right');
+                    if (!collisions.includes('left') && circleCollidesWithRectangle({ circle: ghost, rectangle: boundary, velocity: { x: -ghost.speed, y: 0 } })) collisions.push('left');
+                    if (!collisions.includes('up') && circleCollidesWithRectangle({ circle: ghost, rectangle: boundary, velocity: { x: 0, y: -ghost.speed } })) collisions.push('up');
+                    if (!collisions.includes('down') && circleCollidesWithRectangle({ circle: ghost, rectangle: boundary, velocity: { x: 0, y: ghost.speed } })) collisions.push('down');
                 });
 
                 if (collisions.includes(getGhostDirection(ghost))) {
@@ -473,7 +460,7 @@
                     }
                 }
                 
-                ghost.update(speedModifier);
+                ghost.update();
             });
 
             if (pellets.length === 0) {
@@ -483,13 +470,36 @@
             }
         }
 
+        function draw() {
+            c.clearRect(0, 0, canvas.width, canvas.height);
+            boundaries.forEach(boundary => boundary.draw());
+            pellets.forEach(pellet => pellet.draw());
+            powerUps.forEach(powerUp => powerUp.draw());
+            ghosts.forEach(ghost => ghost.draw());
+            player.draw();
+        }
+
+        function gameLoop(timestamp) {
+            animationId = requestAnimationFrame(gameLoop);
+            if (lastFrameTime === 0) {
+                lastFrameTime = timestamp;
+            }
+            const deltaTime = timestamp - lastFrameTime;
+            lastFrameTime = timestamp;
+            accumulator += deltaTime;
+
+            while (accumulator >= fixedTimeStep) {
+                update();
+                accumulator -= fixedTimeStep;
+            }
+
+            draw();
+        }
+
         function nextLevel() {
             level++;
             levelCompleteScreen.classList.add('hidden');
             initLevel();
-            if (animationId) cancelAnimationFrame(animationId);
-            lastFrameTime = 0;
-            requestAnimationFrame(animate);
         }
         
         function startNewGame() {
@@ -503,7 +513,8 @@
             initLevel();
             if (animationId) cancelAnimationFrame(animationId);
             lastFrameTime = 0;
-            requestAnimationFrame(animate);
+            accumulator = 0;
+            requestAnimationFrame(gameLoop);
         }
         
         startButton.addEventListener('click', startNewGame);
