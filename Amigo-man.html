@@ -6,10 +6,11 @@
     <title>amigo-man</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
         body {
-            font-family: 'Press-Start-2P', cursive;
+            font-family: 'VT323', monospace;
             touch-action: none; /* Disabilita il pinch-to-zoom e altri gesti touch */
             overflow: hidden; /* Nasconde le barre di scorrimento */
         }
@@ -37,8 +38,8 @@
 
     <div id="game-container" class="w-full max-w-lg md:max-w-xl lg:max-w-2xl flex flex-col items-center p-2">
         <!-- Informazioni di gioco -->
-        <div class="w-full flex justify-between items-center mb-2 px-2 text-xs sm:text-base">
-            <h1 class="text-lg sm:text-xl md:text-2xl text-yellow-400">amigo-man</h1>
+        <div class="w-full flex justify-between items-center mb-2 px-2 text-lg sm:text-xl">
+            <h1 class="text-xl sm:text-2xl md:text-3xl text-yellow-400">amigo-man</h1>
             <div>
                 <span>LIVELLO: </span><span id="levelEl" class="text-yellow-400">1</span>
             </div>
@@ -54,19 +55,19 @@
         <div class="relative w-full" style="padding-bottom: 115%;"> <!-- Aspect ratio container -->
              <canvas id="gameCanvas" class="absolute top-0 left-0 w-full h-full rounded-lg border-4 border-blue-600 shadow-lg"></canvas>
              <div id="startScreen" class="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-center p-4">
-                <h2 class="text-3xl text-yellow-400 mb-4">BENVENUTO!</h2>
-                <p class="mb-6">Usa i tasti freccia o i controlli touch per muoverti.</p>
-                <button id="startButton" class="bg-yellow-400 text-black px-6 py-3 rounded-lg text-xl hover:bg-yellow-500 transition-colors">INIZIA GIOCO</button>
+                <h2 class="text-4xl text-yellow-400 mb-4">BENVENUTO!</h2>
+                <p class="text-2xl mb-6">Usa i tasti freccia o i controlli touch per muoverti.</p>
+                <button id="startButton" class="bg-yellow-400 text-black px-6 py-3 rounded-lg text-2xl hover:bg-yellow-500 transition-colors">INIZIA GIOCO</button>
             </div>
              <div id="gameOverScreen" class="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-center p-4 hidden">
-                <h2 class="text-4xl text-red-500 mb-4">GAME OVER</h2>
-                <p id="gameOverMessage" class="text-sm mb-4 text-yellow-300 px-2"></p>
-                <p class="mb-6 text-xl">Punteggio finale: <span id="finalScore" class="text-yellow-400">0</span></p>
-                <button id="restartButton" class="bg-yellow-400 text-black px-6 py-3 rounded-lg text-xl hover:bg-yellow-500 transition-colors">RICOMINCIA</button>
+                <h2 class="text-5xl text-red-500 mb-4">GAME OVER</h2>
+                <p id="gameOverMessage" class="text-xl mb-4 text-yellow-300 px-2"></p>
+                <p class="mb-6 text-2xl">Punteggio finale: <span id="finalScore" class="text-yellow-400">0</span></p>
+                <button id="restartButton" class="bg-yellow-400 text-black px-6 py-3 rounded-lg text-2xl hover:bg-yellow-500 transition-colors">RICOMINCIA</button>
             </div>
              <div id="levelCompleteScreen" class="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-center p-4 hidden">
-                <h2 class="text-3xl text-green-400 mb-4">LIVELLO COMPLETATO!</h2>
-                <p class="text-xl">Preparati per il prossimo livello...</p>
+                <h2 class="text-4xl text-green-400 mb-4">LIVELLO COMPLETATO!</h2>
+                <p class="text-2xl">Preparati per il prossimo livello...</p>
             </div>
         </div>
     </div>
@@ -115,11 +116,7 @@
             right: { pressed: false }
         };
         let lastKey = '';
-        
-        // Variabili per il game loop a tempo fisso
-        let lastFrameTime = 0;
-        let accumulator = 0;
-        const fixedTimeStep = 1000 / 60; // 60 aggiornamenti al secondo
+        let gameState = 'start'; // 'start', 'playing', 'levelComplete', 'gameOver'
 
         // Carica il punteggio migliore
         bestScore = localStorage.getItem('amigoManBestScore') || 0;
@@ -409,8 +406,7 @@
                         scoreEl.innerHTML = score;
                         playEatGhostSound();
                     } else {
-                        cancelAnimationFrame(animationId);
-                        
+                        gameState = 'gameOver';
                         let message = '';
                         switch (ghost.name) {
                             case 'i libri': message = "Cavolo amigo, la prossima volta lo passi l'esame"; break;
@@ -464,7 +460,7 @@
             });
 
             if (pellets.length === 0) {
-                cancelAnimationFrame(animationId);
+                gameState = 'levelComplete';
                 levelCompleteScreen.classList.remove('hidden');
                 setTimeout(nextLevel, 3000);
             }
@@ -479,20 +475,13 @@
             player.draw();
         }
 
-        function gameLoop(timestamp) {
+        function gameLoop() {
             animationId = requestAnimationFrame(gameLoop);
-            if (lastFrameTime === 0) {
-                lastFrameTime = timestamp;
-            }
-            const deltaTime = timestamp - lastFrameTime;
-            lastFrameTime = timestamp;
-            accumulator += deltaTime;
-
-            while (accumulator >= fixedTimeStep) {
+            
+            if (gameState === 'playing') {
                 update();
-                accumulator -= fixedTimeStep;
             }
-
+            
             draw();
         }
 
@@ -500,6 +489,7 @@
             level++;
             levelCompleteScreen.classList.add('hidden');
             initLevel();
+            gameState = 'playing';
         }
         
         function startNewGame() {
@@ -512,8 +502,7 @@
             levelCompleteScreen.classList.add('hidden');
             initLevel();
             if (animationId) cancelAnimationFrame(animationId);
-            lastFrameTime = 0;
-            accumulator = 0;
+            gameState = 'playing';
             requestAnimationFrame(gameLoop);
         }
         
